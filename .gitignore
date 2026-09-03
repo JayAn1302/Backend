@@ -1,0 +1,11 @@
+.vs/
+.vscode/
+bin/
+obj/
+*.user
+*.suo
+*.bak
+.env
+appsettings.Development.json
+wwwroot/uploads/
+*.log
