@@ -24,7 +24,6 @@
   <ItemGroup>
     <Folder Include="Migrations\" />
     <Folder Include="Properties\PublishProfiles\" />
-    <Folder Include="Services\" />
     <Folder Include="wwwroot\uploads\borrowers\" />
   </ItemGroup>
 

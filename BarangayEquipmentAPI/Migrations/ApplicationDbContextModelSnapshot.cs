@@ -235,7 +235,7 @@ namespace BarangayEquipmentAPI.Migrations
                     b.ToTable("Notifications");
                 });
 
-            modelBuilder.Entity("BarangayEquipmentAPI.Models.User", b =>
+            modelBuilder.Entity("User", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -253,6 +253,12 @@ namespace BarangayEquipmentAPI.Migrations
                     b.Property<string>("Password")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ResetToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ResetTokenExpiry")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Role")
                         .IsRequired()

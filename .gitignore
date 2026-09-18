@@ -9,3 +9,4 @@ obj/
 appsettings.Development.json
 wwwroot/uploads/
 *.log
+appsettings.json

@@ -73,6 +73,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 });
 
 builder.Services.AddAuthorization();
+builder.Services.AddHttpClient<BarangayEquipmentAPI.Services.EmailService>();
 
 // CORS
 builder.Services.AddCors(options =>
@@ -126,7 +127,7 @@ using (var scope = app.Services.CreateScope())
         {
             context.Users.Add(new User
             {
-                Username = "admin",
+                Username = "admin@stafilomena.gov.ph",
                 Password = BCrypt.Net.BCrypt.HashPassword("admin123"),
                 FullName = "System Administrator",
                 Role = "Admin"
@@ -134,7 +135,7 @@ using (var scope = app.Services.CreateScope())
 
             context.Users.Add(new User
             {
-                Username = "staff",
+                Username = "staff@stafilomena.gov.ph",
                 Password = BCrypt.Net.BCrypt.HashPassword("staff123"),
                 FullName = "Barangay Staff",
                 Role = "Staff"

@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using BarangayEquipmentAPI.Services;
 
 namespace BarangayEquipmentAPI.Controllers
 {
@@ -16,11 +17,13 @@ namespace BarangayEquipmentAPI.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly EmailService _emailService;
 
-        public AuthenticationController(ApplicationDbContext context, IConfiguration configuration)
+        public AuthenticationController(ApplicationDbContext context, IConfiguration configuration, EmailService emailService)
         {
             _context = context;
             _configuration = configuration;
+            _emailService = emailService;
         }
 
         [HttpPost("login")]
@@ -78,7 +81,59 @@ namespace BarangayEquipmentAPI.Controllers
 
             return Ok(response);
         }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
+        {
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Username == dto.Username);
+
+            if (user == null)
+            {
+                return Ok(new { message = "If that account exists, a reset code was sent to its email." });
+            }
+
+            var token = Guid.NewGuid().ToString("N");
+            user.ResetToken = token;
+            user.ResetTokenExpiry = DateTime.UtcNow.AddMinutes(15);
+
+            await _context.SaveChangesAsync();
+
+            try
+            {
+                await _emailService.SendPasswordResetEmail(user.Username, token);
+            }
+            catch
+            {
+                return StatusCode(500, "Could not send reset email. Please try again later.");
+            }
+
+            return Ok(new { message = "If that account exists, a reset code was sent to its email." });
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
+        {
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Username == dto.Username);
+
+            if (user == null || user.ResetToken != dto.Token)
+            {
+                return BadRequest("Invalid or expired reset token.");
+            }
+
+            if (user.ResetTokenExpiry == null || user.ResetTokenExpiry < DateTime.UtcNow)
+            {
+                return BadRequest("Reset token has expired.");
+            }
+
+            user.Password = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+            user.ResetToken = null;
+            user.ResetTokenExpiry = null;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Password has been reset successfully." });
+        }
     }
-
-
 }
