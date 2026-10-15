@@ -81,12 +81,30 @@ namespace BarangayEquipmentAPI.Controllers
             if (dto.Quantity <= 0)
                 return BadRequest("Quantity must be greater than zero.");
 
-            bool equipmentExists = await _context.Equipments.AnyAsync(e =>
-    e.EquipmentName.ToLower() == dto.EquipmentName.ToLower());
+            var existingEquipment = await _context.Equipments.FirstOrDefaultAsync(e =>
+     e.EquipmentName.ToLower() == dto.EquipmentName.ToLower() &&
+     e.Condition.ToLower() == dto.Condition.ToLower());
 
-            if (equipmentExists)
+            if (existingEquipment != null)
             {
-                return BadRequest("An equipment with this name already exists.");
+                return Conflict(new
+                {
+                    message = "An equipment with this name and condition already exists.",
+                    existingId = existingEquipment.Id,
+                    existingName = existingEquipment.EquipmentName,
+                    existingQuantity = existingEquipment.Quantity,
+                    existingCondition = existingEquipment.Condition
+                });
+            }
+
+            bool sameNameDifferentCondition = await _context.Equipments.AnyAsync(e =>
+                e.EquipmentName.ToLower() == dto.EquipmentName.ToLower());
+
+            if (sameNameDifferentCondition)
+            {
+                // Same name but different condition — allow it to save as a new row,
+                // since merging would corrupt the condition field's accuracy.
+                // (falls through to normal creation below)
             }
 
             // Get the latest equipment
@@ -153,6 +171,57 @@ namespace BarangayEquipmentAPI.Controllers
 
             return Ok(equipment);
         }
+
+
+        // PATCH: api/Equipment/5/increment
+        [Authorize(Roles = "Admin")]
+        [HttpPatch("{id}/increment")]
+        public async Task<ActionResult<EquipmentResponseDto>> IncrementEquipment(int id, IncrementEquipmentDto dto)
+        {
+            var equipment = await _context.Equipments.FindAsync(id);
+
+            if (equipment == null)
+                return NotFound("Equipment not found.");
+
+            if (dto.Quantity <= 0)
+                return BadRequest("Quantity must be greater than zero.");
+
+            equipment.Quantity += dto.Quantity;
+            equipment.AvailableQuantity += dto.Quantity;
+
+            equipment.Status = equipment.AvailableQuantity > 0
+                ? "Available"
+                : "Unavailable";
+
+            if (equipment.Condition == "Damaged")
+            {
+                equipment.Status = "Under Maintenance";
+            }
+
+            await _context.SaveChangesAsync();
+
+            await ActivityLogHelper.LogActivity(
+                _context,
+                User.FindFirst(ClaimTypes.Name)?.Value ?? "Unknown",
+                User.FindFirst(ClaimTypes.Role)?.Value ?? "Unknown",
+                "Equipment",
+                $"Increased quantity of {equipment.EquipmentName} by {dto.Quantity} (new total: {equipment.Quantity})"
+            );
+
+            return Ok(new EquipmentResponseDto
+            {
+                Id = equipment.Id,
+                SerialNumber = equipment.SerialNumber,
+                EquipmentName = equipment.EquipmentName,
+                Category = equipment.Category,
+                Quantity = equipment.Quantity,
+                AvailableQuantity = equipment.AvailableQuantity,
+                Condition = equipment.Condition,
+                Status = equipment.Status
+            });
+        }
+
+        
 
         // PUT: api/Equipment/5
         [Authorize(Roles = "Admin")]

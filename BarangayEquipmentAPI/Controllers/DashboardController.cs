@@ -54,6 +54,8 @@ namespace BarangayEquipmentAPI.Controllers
                         b.Status == "Borrowed" &&
                         b.ExpectedReturnDate < today),
 
+                MonthlyActivity = await GetMonthlyActivity(),
+
                 RecentBorrowings = await _context.Borrowings
                 .Include(b => b.Borrower)
                 .Include(b => b.BorrowingItems)
@@ -63,6 +65,7 @@ namespace BarangayEquipmentAPI.Controllers
                 .Select(b => new BorrowingResponseDto
                 {
                     Id = b.Id,
+                    ReferenceNo = b.ReferenceNo,
 
                     BorrowerId = b.BorrowerId,
                     BorrowerName = b.Borrower!.FullName,
@@ -92,6 +95,43 @@ namespace BarangayEquipmentAPI.Controllers
 
             return Ok(response);
         }
+
+        private async Task<List<MonthlyActivityDto>> GetMonthlyActivity()
+        {
+            var months = new List<MonthlyActivityDto>();
+            var today = DateTime.Today;
+
+            for (int i = 5; i >= 0; i--)
+            {
+                var monthDate = today.AddMonths(-i);
+                var monthStart = new DateOnly(monthDate.Year, monthDate.Month, 1);
+                var monthEnd = monthStart.AddMonths(1);
+
+                int borrowedCount = await _context.BorrowingItems
+                    .Include(bi => bi.Borrowing)
+                    .Where(bi =>
+                        bi.Borrowing!.BorrowDate >= monthStart &&
+                        bi.Borrowing.BorrowDate < monthEnd)
+                    .SumAsync(bi => bi.QuantityBorrowed);
+
+                int returnedCount = await _context.BorrowingItems
+                    .Include(bi => bi.Borrowing)
+                    .Where(bi =>
+                        bi.Borrowing!.ActualReturnDate != null &&
+                        bi.Borrowing.ActualReturnDate >= monthStart &&
+                        bi.Borrowing.ActualReturnDate < monthEnd)
+                    .SumAsync(bi => bi.QuantityReturned);
+
+                months.Add(new MonthlyActivityDto
+                {
+                    Month = monthDate.ToString("MMM"),
+                    Borrowed = borrowedCount,
+                    Returned = returnedCount
+                });
+            }
+
+            return months;
+        }
     }
-  
+
 }

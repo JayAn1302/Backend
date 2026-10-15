@@ -20,12 +20,37 @@ namespace BarangayEquipmentAPI.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _environment;
 
+        private static readonly string[] AllowedPhotoExtensions = { ".jpg", ".jpeg", ".png" };
+        private static readonly string[] AllowedPhotoContentTypes = { "image/jpeg", "image/jpg", "image/png" };
+        private const long MaxPhotoSizeBytes = 2 * 1024 * 1024; // 2MB
+
         public BorrowersController(
             ApplicationDbContext context,
             IWebHostEnvironment environment)
         {
             _context = context;
             _environment = environment;
+        }
+
+        private string? ValidatePhoto(IFormFile? photo)
+        {
+            if (photo == null) return null;
+
+            var extension = Path.GetExtension(photo.FileName).ToLowerInvariant();
+
+            if (!AllowedPhotoExtensions.Contains(extension))
+                return "Only JPG or PNG image files are allowed.";
+
+            if (!AllowedPhotoContentTypes.Contains(photo.ContentType.ToLowerInvariant()))
+                return "Only JPG or PNG image files are allowed.";
+
+            if (photo.Length > MaxPhotoSizeBytes)
+                return "Photo must be 2MB or smaller.";
+
+            if (photo.Length == 0)
+                return "Uploaded photo is empty.";
+
+            return null;
         }
 
 
@@ -71,6 +96,22 @@ namespace BarangayEquipmentAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<BorrowerResponseDto>> CreateBorrower([FromForm] CreateBorrowerDto dto)
         {
+            if (string.IsNullOrWhiteSpace(dto.FullName))
+                return BadRequest("Full name is required.");
+
+            if (string.IsNullOrWhiteSpace(dto.Address))
+                return BadRequest("Address is required.");
+
+            if (string.IsNullOrWhiteSpace(dto.ContactNumber) ||
+                !System.Text.RegularExpressions.Regex.IsMatch(dto.ContactNumber, @"^09\d{9}$"))
+            {
+                return BadRequest("Contact number must be 11 digits starting with 09.");
+            }
+
+            var photoError = ValidatePhoto(dto.Photo);
+            if (photoError != null)
+                return BadRequest(photoError);
+
             string? photoPath = null;
 
             if (dto.Photo != null)
@@ -183,12 +224,30 @@ namespace BarangayEquipmentAPI.Controllers
             if (borrower == null)
                 return NotFound();
 
+
+            if (string.IsNullOrWhiteSpace(dto.FullName))
+                return BadRequest("Full name is required.");
+
+            if (string.IsNullOrWhiteSpace(dto.Address))
+                return BadRequest("Address is required.");
+
+            if (string.IsNullOrWhiteSpace(dto.ContactNumber) ||
+     !System.Text.RegularExpressions.Regex.IsMatch(dto.ContactNumber, @"^09\d{9}$"))
+            {
+                return BadRequest("Contact number must be 11 digits starting with 09.");
+            }
+
+            var photoError = ValidatePhoto(dto.Photo);
+            if (photoError != null)
+                return BadRequest(photoError);
+
             borrower.FullName = dto.FullName;
             borrower.Address = dto.Address;
             borrower.ContactNumber = dto.ContactNumber;
 
             if (dto.Photo != null)
             {
+                // Delete old photo
                 // Delete old photo
                 if (!string.IsNullOrEmpty(borrower.PhotoPath))
                 {

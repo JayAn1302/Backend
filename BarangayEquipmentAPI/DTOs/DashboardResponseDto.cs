@@ -17,7 +17,18 @@
 
 
 
+        // Monthly Chart
+        public List<MonthlyActivityDto> MonthlyActivity { get; set; } = new();
+
         // Dashboard Table
         public List<BorrowingResponseDto> RecentBorrowings { get; set; } = new();
     }
-}
+
+    public class MonthlyActivityDto
+    {
+        public string Month { get; set; } = string.Empty;
+        public int Borrowed { get; set; }
+        public int Returned { get; set; }
+    }
+
+    }
